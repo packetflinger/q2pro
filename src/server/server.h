@@ -532,6 +532,8 @@ extern cvar_t       *sv_debug;
 extern cvar_t       *sv_pad_packets;
 #endif
 extern cvar_t       *sv_novis;
+extern cvar_t       *sv_nc_visibilitycheck;
+extern cvar_t       *sv_nc_clientsonly;
 extern cvar_t       *sv_lan_force_rate;
 extern cvar_t       *sv_calcpings_method;
 extern cvar_t       *sv_changemapcmd;
@@ -833,6 +835,17 @@ static inline void SV_SetClient_Ping(const client_t *client, int ping)
         ((gclient_new_t *)client->edict->client)->ping = ping;
     else
         ((gclient_old_t *)client->edict->client)->ping = ping;
+}
+
+static inline void SV_GetEdict_Velocity(const edict_t *ent, vec3_t velocity)
+{
+    if (IS_NEW_GAME_API) {
+        const gclient_new_t *cl = ent->client;
+        VectorScale(cl->ps.pmove.velocity, 0.125f, velocity);
+    } else {
+        const gclient_old_t *cl = ent->client;
+        VectorScale(cl->ps.pmove.velocity, 0.125f, velocity);
+    }
 }
 
 //============================================================

@@ -484,6 +484,57 @@ static bool SV_EntityAttenuatedAway(const vec3_t org, const edict_t *ent)
     return dist * mult > 1.0f;
 }
 
+// Traces from start to a set of points on ent's bounding box, returning
+// true as soon as any of them is unobstructed. Used by sv_nc_visibilitycheck
+// to catch wallhackers: entities that are technically in the PVS/PHS can
+// still be hidden behind solid geometry from the client's actual viewpoint.
+static bool SV_CheckPlayerVisible(const vec3_t start, const edict_t *ent, bool fullCheck, bool predictEnt)
+{
+    vec3_t  ends[9];
+    vec3_t  entOrigin;
+    trace_t trace;
+    int     num;
+
+    VectorCopy(ent->s.origin, entOrigin);
+
+    if (predictEnt && ent->client) {
+        vec3_t velocity;
+
+        SV_GetEdict_Velocity(ent, velocity);
+        VectorMA(entOrigin, 0.15f, velocity, entOrigin);
+    }
+
+    VectorCopy(entOrigin, ends[0]);
+
+    if (fullCheck) {
+        for (int i = 1; i < 9; i++) {
+            VectorCopy(entOrigin, ends[i]);
+        }
+
+        ends[1][0] += ent->mins[0]; ends[1][1] += ent->maxs[1]; ends[1][2] += ent->maxs[2];
+        ends[2][0] += ent->mins[0]; ends[2][1] += ent->maxs[1]; ends[2][2] += ent->mins[2];
+        ends[3][0] += ent->mins[0]; ends[3][1] += ent->mins[1]; ends[3][2] += ent->maxs[2];
+        ends[4][0] += ent->mins[0]; ends[4][1] += ent->mins[1]; ends[4][2] += ent->mins[2];
+        ends[5][0] += ent->maxs[0]; ends[5][1] += ent->maxs[1]; ends[5][2] += ent->maxs[2];
+        ends[6][0] += ent->maxs[0]; ends[6][1] += ent->maxs[1]; ends[6][2] += ent->mins[2];
+        ends[7][0] += ent->maxs[0]; ends[7][1] += ent->mins[1]; ends[7][2] += ent->maxs[2];
+        ends[8][0] += ent->maxs[0]; ends[8][1] += ent->mins[1]; ends[8][2] += ent->mins[2];
+
+        num = 9;
+    } else {
+        num = 1;
+    }
+
+    for (int i = 0; i < num; i++) {
+        trace = SV_Trace(start, NULL, NULL, ends[i], NULL, CONTENTS_SOLID);
+        if (trace.fraction == 1.0f) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 #define IS_MONSTER(ent) \
     ((ent->svflags & (SVF_MONSTER | SVF_DEADMONSTER)) == SVF_MONSTER || (ent->s.renderfx & RF_FRAMELERP))
 
@@ -551,6 +602,7 @@ void SV_BuildClientFrame(client_t *client)
     int         max_packet_entities;
     edict_t     *edicts[MAX_EDICTS];
     int         num_edicts;
+    bool        hide_model[MAX_EDICTS];
     qboolean (*visible)(edict_t *, edict_t *) = NULL;
     qboolean (*customize)(edict_t *, edict_t *, customize_entity_t *) = NULL;
     customize_entity_t temp;
@@ -690,6 +742,50 @@ void SV_BuildClientFrame(client_t *client)
         if (visible && !visible(clent, ent))
             continue;
 
+        hide_model[e] = false;
+
+        // strict server-side visibility check to combat wallhackers: an
+        // entity may be in the PVS/PHS and still be hidden from the
+        // client's actual viewpoint by solid geometry.
+        if (ent != clent && sv_nc_visibilitycheck->integer
+            && !sv_novis->integer && !(client->csr->extended && ent->svflags & SVF_NOCULL)
+            && !(sv_nc_clientsonly->integer && !ent->client)
+            && ent->solid != SOLID_BSP && ent->solid != SOLID_TRIGGER) {
+            vec3_t  start;
+            bool    seen;
+
+            VectorCopy(org, start);
+            seen = SV_CheckPlayerVisible(start, ent, true, false);
+
+            if (!seen) {
+                vec3_t velocity;
+
+                SV_GetEdict_Velocity(clent, velocity);
+                VectorMA(org, 0.15f + client->ping * 0.001f, velocity, start);
+                seen = SV_CheckPlayerVisible(start, ent, false, true);
+
+                if (!seen) {
+                    start[2] += ent->maxs[2];
+                    seen = SV_CheckPlayerVisible(start, ent, false, true);
+                }
+            }
+
+            if (!seen) {
+                // completely hide the entity from the client
+                if (sv_nc_visibilitycheck->integer == 2) {
+                    continue;
+                }
+
+                // otherwise strip its model but still send it if it carries
+                // an event/sound (e.g. footsteps), which requires no LOS
+                if (!ent->s.effects && !ent->s.sound && !ent->s.event) {
+                    continue;
+                }
+
+                hide_model[e] = true;
+            }
+        }
+
         edicts[num_edicts++] = ent;
 
         if (num_edicts == max_packet_entities && !sv_prioritize_entities->integer)
@@ -741,6 +837,15 @@ void SV_BuildClientFrame(client_t *client)
         if (e == frame->clientNum + 1 && ent != clent &&
             (!Q2PRO_OPTIMIZE(client) || need_clientnum_fix)) {
             state->modelindex = 0;
+        }
+
+        // failed the sv_nc_visibilitycheck line-of-sight test: strip the
+        // model so nothing is rendered, but keep the entity (and any event
+        // or sound it carries, e.g. footsteps)
+        if (hide_model[e]) {
+            state->modelindex = state->modelindex2 = 0;
+            state->modelindex3 = state->modelindex4 = 0;
+            state->skinnum = 0;
         }
 
 #if USE_MVD_CLIENT
