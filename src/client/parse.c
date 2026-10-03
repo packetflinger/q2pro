@@ -1087,12 +1087,12 @@ static void CL_ParsePrint(void)
     // filter text
     if (cl_chat_filter->integer) {
         COM_strclr(s);
-        fmt = "%s\n";
+        fmt = "%d=%s\n";
     } else {
-        fmt = "%s";
+        fmt = "%d=%s";
     }
 
-    Com_LPrintf(PRINT_TALK, fmt, s);
+    Com_LPrintf(PRINT_TALK, fmt, level, s);
 
     Con_SkipNotify(false);
 
