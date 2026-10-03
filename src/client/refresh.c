@@ -227,16 +227,8 @@ extern const vid_driver_t   vid_win32wgl;
 extern const vid_driver_t   vid_win32egl;
 #endif
 
-#if USE_WAYLAND
-extern const vid_driver_t   vid_wayland;
-#endif
-
-#if USE_X11
-extern const vid_driver_t   vid_x11;
-#endif
-
-#if USE_SDL
-extern const vid_driver_t   vid_sdl;
+#if USE_VID_NULL
+extern const vid_driver_t   vid_null;
 #endif
 
 static const vid_driver_t *const vid_drivers[] = {
@@ -246,14 +238,8 @@ static const vid_driver_t *const vid_drivers[] = {
 #if USE_WIN32EGL
     &vid_win32egl,
 #endif
-#if USE_WAYLAND
-    &vid_wayland,
-#endif
-#if USE_X11
-    &vid_x11,
-#endif
-#if USE_SDL
-    &vid_sdl,
+#if USE_VID_NULL
+    &vid_null,
 #endif
     NULL
 };

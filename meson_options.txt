@@ -11,7 +11,7 @@ option('auto-reply',
 option('avcodec',
   type: 'feature',
   value: 'auto',
-  description: 'libavcodec support')
+  description: 'libavcodec support (Windows client only; the headless Unix build does no video/audio decoding)')
 
 option('base-game',
   type: 'string',
@@ -26,7 +26,7 @@ option('client-gtv',
 option('client-ui',
   type: 'boolean',
   value: true,
-  description: 'Enable menu-based user interface')
+  description: 'Enable menu-based user interface (Windows client only; the headless Unix build has no UI)')
 
 option('default-game',
   type: 'string',
@@ -67,12 +67,12 @@ option('libcurl',
 option('libjpeg',
   type: 'feature',
   value: 'auto',
-  description: 'libjpeg support')
+  description: 'libjpeg support (Windows client only; the headless Unix build does no image decoding)')
 
 option('libpng',
   type: 'feature',
   value: 'auto',
-  description: 'libpng support')
+  description: 'libpng support (Windows client only; the headless Unix build does no image decoding)')
 
 option('md3',
   type: 'boolean',
@@ -99,12 +99,12 @@ option('mvd-server',
 option('openal',
   type: 'feature',
   value: 'auto',
-  description: 'OpenAL sound backend')
+  description: 'OpenAL sound backend (Windows client only; the headless Unix build has no sound)')
 
 option('opengl-es1',
   type: 'boolean',
   value: false,
-  description: 'Build OpenGL ES 1 compatible renderer')
+  description: 'Build OpenGL ES 1 compatible renderer (Windows client only)')
 
 option('packetdup-hack',
   type: 'boolean',
@@ -116,15 +116,10 @@ option('save-games',
   value: true,
   description: 'Server side support for savegames')
 
-option('sdl2',
-  type: 'feature',
-  value: 'auto',
-  description: 'SDL2 video and audio drivers')
-
 option('software-sound',
   type: 'feature',
   value: 'auto',
-  description: 'Software sound backend')
+  description: 'Software sound backend (Windows client only; the headless Unix build has no sound)')
 
 option('system-console',
   type: 'boolean',
@@ -144,7 +139,7 @@ option('tests',
 option('tga',
   type: 'boolean',
   value: true,
-  description: 'TGA images support')
+  description: 'TGA images support (Windows client only)')
 
 option('variable-fps',
   type: 'boolean',
@@ -161,11 +156,6 @@ option('vid-modelist',
   value: '640x480 800x600 1024x768',
   description: 'Default video mode list')
 
-option('wayland',
-  type: 'feature',
-  value: 'auto',
-  description: 'Wayland video driver')
-
 option('windows-crash-dumps',
   type: 'feature',
   value: 'auto',
@@ -180,11 +170,6 @@ option('windows-service',
   type: 'boolean',
   value: true,
   description: 'Support for running dedicated server as Windows service')
-
-option('x11',
-  type: 'feature',
-  value: 'auto',
-  description: 'X11 video driver')
 
 option('zlib',
   type: 'feature',

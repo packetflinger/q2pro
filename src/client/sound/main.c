@@ -136,7 +136,13 @@ S_Init
 */
 void S_Init(void)
 {
+#if USE_OPENAL || USE_SNDDMA
     s_enable = Cvar_Get("s_enable", "1", CVAR_SOUND);
+#else
+    // no sound backend compiled in (headless build): disable by default
+    // instead of failing with a scary error message every startup
+    s_enable = Cvar_Get("s_enable", "0", CVAR_SOUND);
+#endif
     if (s_enable->integer <= SS_NOT) {
         Com_Printf("Sound initialization disabled.\n");
         return;

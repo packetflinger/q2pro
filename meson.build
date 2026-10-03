@@ -165,6 +165,13 @@ cc = meson.get_compiler('c')
 win32 = host_machine.system() == 'windows'
 x86 = host_machine.cpu_family() == 'x86'
 
+# The client is built headless (no GUI, no sound, no input) everywhere
+# except Windows: no video/GL renderer is compiled in, a null refresh/video
+# backend takes its place so the client protocol and console code still run.
+if not win32
+  refresh_src = ['src/refresh/null.c']
+endif
+
 cpuremap = {
   'x86': win32 ? 'x86' : 'i386',
   'aarch64': 'arm64',
@@ -265,11 +272,15 @@ if not zlib.found()
   warning('zlib not found, client will be unable to connect to protocol 35 servers')
 endif
 
-png = dependency('libpng',
-  version:         '>= 1.6.11',
-  required:        get_option('libpng'),
-  default_options: fallback_opt,
-)
+if win32
+  png = dependency('libpng',
+    version:         '>= 1.6.11',
+    required:        get_option('libpng'),
+    default_options: fallback_opt,
+  )
+else
+  png = dependency('', required: false)
+endif
 if png.found()
   texture_formats += 'png'
 endif
@@ -288,34 +299,30 @@ if curl.found()
   config.set10('USE_CURL', true)
 endif
 
-sdl2 = dependency('sdl2', required: get_option('sdl2'))
-if sdl2.found()
-  client_src += 'src/unix/video/sdl.c'
-  config.set('USE_SDL', 'USE_CLIENT')
-endif
-
 common_deps = [zlib]
-client_deps = [png, curl, sdl2]
+client_deps = [png, curl]
 server_deps = []
 game_deps = [zlib]
 
-jpeg = dependency('libjpeg',
-  required:        get_option('libjpeg'),
-  default_options: fallback_opt + [ 'jpeg-turbo=disabled', 'tests=disabled' ]
-)
-if jpeg.found()
-  if jpeg.type_name() == 'internal'
-    has_rgba = true
-  else
-    has_rgba = cc.has_header_symbol('jpeglib.h', 'JCS_EXT_RGBA',
-      prefix:       '#include <stdio.h>',
-      dependencies: jpeg,
-      required:     get_option('libjpeg'))
-  endif
-  if has_rgba
-    client_deps += jpeg
-    texture_formats += 'jpg'
-    config.set10('USE_JPG', true)
+if win32
+  jpeg = dependency('libjpeg',
+    required:        get_option('libjpeg'),
+    default_options: fallback_opt + [ 'jpeg-turbo=disabled', 'tests=disabled' ]
+  )
+  if jpeg.found()
+    if jpeg.type_name() == 'internal'
+      has_rgba = true
+    else
+      has_rgba = cc.has_header_symbol('jpeglib.h', 'JCS_EXT_RGBA',
+        prefix:       '#include <stdio.h>',
+        dependencies: jpeg,
+        required:     get_option('libjpeg'))
+    endif
+    if has_rgba
+      client_deps += jpeg
+      texture_formats += 'jpg'
+      config.set10('USE_JPG', true)
+    endif
   endif
 endif
 
@@ -323,28 +330,36 @@ if get_option('tga')
   texture_formats += 'tga'
 endif
 
-openal = dependency('openal',
-  version:         '>= 1.18.0',
-  required:        get_option('openal'),
-  default_options: fallback_opt,
-)
-if openal.found()
-  client_src += [ 'src/client/sound/al.c', 'src/client/sound/qal.c' ]
-  client_deps += openal.partial_dependency(compile_args: true, includes: true)
-  config.set10('USE_OPENAL', true)
+if win32
+  openal = dependency('openal',
+    version:         '>= 1.18.0',
+    required:        get_option('openal'),
+    default_options: fallback_opt,
+  )
+  if openal.found()
+    client_src += [ 'src/client/sound/al.c', 'src/client/sound/qal.c' ]
+    client_deps += openal.partial_dependency(compile_args: true, includes: true)
+    config.set10('USE_OPENAL', true)
+  endif
+else
+  openal = dependency('', required: false)
 endif
 
-# require FFmpeg >= 5.1.3
-avcodec_opt = get_option('avcodec')
-avcodec = dependency('libavcodec', version: '>= 59.37.100', required: avcodec_opt)
-avformat = dependency('libavformat', version: '>= 59.27.100', required: avcodec_opt)
-avutil = dependency('libavutil', version: '>= 57.28.100', required: avcodec_opt)
-swresample = dependency('libswresample', version: '>= 4.7.100', required: avcodec_opt)
-swscale = dependency('libswscale', version: '>= 6.7.100', required: avcodec_opt)
-if avcodec.found() and avformat.found() and avutil.found() and swresample.found() and swscale.found()
-  client_src += ['src/client/ffcin.c', 'src/client/sound/ogg.c']
-  client_deps += [avcodec, avformat, avutil, swresample, swscale]
-  config.set10('USE_AVCODEC', true)
+if win32
+  # require FFmpeg >= 5.1.3
+  avcodec_opt = get_option('avcodec')
+  avcodec = dependency('libavcodec', version: '>= 59.37.100', required: avcodec_opt)
+  avformat = dependency('libavformat', version: '>= 59.27.100', required: avcodec_opt)
+  avutil = dependency('libavutil', version: '>= 57.28.100', required: avcodec_opt)
+  swresample = dependency('libswresample', version: '>= 4.7.100', required: avcodec_opt)
+  swscale = dependency('libswscale', version: '>= 6.7.100', required: avcodec_opt)
+  if avcodec.found() and avformat.found() and avutil.found() and swresample.found() and swscale.found()
+    client_src += ['src/client/ffcin.c', 'src/client/sound/ogg.c']
+    client_deps += [avcodec, avformat, avutil, swresample, swscale]
+    config.set10('USE_AVCODEC', true)
+  else
+    client_src += 'src/client/cin.c'
+  endif
 else
   client_src += 'src/client/cin.c'
 endif
@@ -360,7 +375,7 @@ if get_option('client-gtv')
   config.set10('USE_CLIENT_GTV', true)
 endif
 
-if get_option('client-ui')
+if win32 and get_option('client-ui')
   client_src += ui_src
   config.set10('USE_UI', true)
   if system_wide
@@ -368,13 +383,10 @@ if get_option('client-ui')
   endif
 endif
 
-if get_option('software-sound').require(win32 or sdl2.found()).allowed()
+if win32 and get_option('software-sound').allowed()
   client_src += 'src/client/sound/dma.c'
-  if sdl2.found()
-    client_src += 'src/unix/sound/sdl.c'
-  endif
   config.set10('USE_SNDDMA', true)
-elif not openal.found()
+elif win32 and not openal.found()
   warning('Neither software sound nor OpenAL enabled, this is not supported')
 endif
 
@@ -414,7 +426,7 @@ if get_option('tests')
   config.set10('USE_TESTS', true)
 endif
 
-if get_option('debug')
+if win32 and get_option('debug')
   refresh_src += 'src/refresh/debug.c'
 endif
 
@@ -429,7 +441,7 @@ executable('q2pro', common_src, client_src, refresh_src,
   gnu_symbol_visibility: 'hidden',
   win_subsystem:         'windows,6.0',
   link_args:             exe_link_args,
-  c_args:                ['-DUSE_CLIENT=1', '-DUSE_REF=1', engine_args],
+  c_args:                ['-DUSE_CLIENT=1', '-DUSE_REF=' + (win32 ? '1' : '0'), engine_args],
   install:               system_wide,
 )
 
@@ -478,6 +490,7 @@ config.set10('USE_MD3',           get_option('md3'))
 config.set10('USE_MD5',           get_option('md5'))
 config.set10('USE_PACKETDUP',     get_option('packetdup-hack'))
 config.set10('USE_TGA',           get_option('tga'))
+config.set10('USE_VID_NULL',      not win32)
 config.set10('USE_' + host_machine.endian().to_upper() + '_ENDIAN', true)
 
 if host_machine.system() == 'darwin'
@@ -523,16 +536,14 @@ summary({
   'openal'             : config.get('USE_OPENAL', 0) != 0,
   'packetdup-hack'     : config.get('USE_PACKETDUP', 0) != 0,
   'save-games'         : config.get('USE_SAVEGAMES', 0) != 0,
-  'sdl2'               : config.get('USE_SDL', '') != '',
   'software-sound'     : config.get('USE_SNDDMA', 0) != 0,
   'system-console'     : config.get('USE_SYSCON', 0) != 0,
   'tests'              : config.get('USE_TESTS', 0) != 0,
   'tga'                : config.get('USE_TGA', 0) != 0,
   'variable-fps'       : config.get('USE_FPS', 0) != 0,
-  'wayland'            : config.get('USE_WAYLAND', 0) != 0,
+  'headless-client'    : config.get('USE_VID_NULL', 0) != 0,
   'windows-crash-dumps': config.get('USE_DBGHELP', 0) != 0,
   'windows-egl'        : config.get('USE_WIN32EGL', 0) != 0,
   'windows-service'    : config.get('USE_WINSVC', '') != '',
-  'x11'                : config.get('USE_X11', 0) != 0,
   'zlib'               : config.get('USE_ZLIB', 0) != 0,
   }, section: 'Features', bool_yn: true)
