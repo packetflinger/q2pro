@@ -247,6 +247,10 @@ static void set_active_state(void)
 {
     cls.state = ca_active;
 
+    // fully spawned in now, no need to download anything else at full
+    // speed until the next map change
+    CL_SetConnectSpeed(false);
+
     cl.serverdelta = Q_align_down(cl.frame.number, CL_FRAMEDIV);
     cl.time = cl.servertime = 0; // set time, needed for demos
 #if USE_FPS

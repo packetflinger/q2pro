@@ -66,6 +66,9 @@ cvar_t  *cl_disconnectcmd;
 cvar_t  *cl_changemapcmd;
 cvar_t  *cl_beginmapcmd;
 
+cvar_t  *cl_connect_rate;
+cvar_t  *cl_connect_maxfps;
+
 cvar_t  *cl_ignore_stufftext;
 cvar_t  *cl_allow_vid_restart;
 
@@ -413,6 +416,8 @@ void CL_CheckForResend(void)
 
         cls.passive = false;
 
+        CL_SetConnectSpeed(true);
+
         Con_Popup(true);
         UI_OpenMenu(UIMENU_NONE);
     }
@@ -491,6 +496,35 @@ static void CL_Connect_c(genctx_t *ctx, int argnum)
     }
 }
 
+// user-requested steady-state values, captured once at startup (see CL_Init)
+static char cl_rate_target[16];
+static char cl_maxfps_target[16];
+
+/*
+==================
+CL_SetConnectSpeed
+
+This client has no local player input, so there is normally no need for
+a high 'rate' or 'cl_maxfps' once it is just sitting in an active game
+watching things happen. But both need to be high while a level's worth of
+configstrings and entity baselines are being downloaded right after
+connecting (or after the server changes levels), otherwise that initial
+burst of data trickles in over several seconds. So bump both up for the
+duration of loading, then drop them back down to whatever was requested
+on the command line as soon as the client has spawned into the game.
+==================
+*/
+void CL_SetConnectSpeed(bool connecting)
+{
+    if (connecting) {
+        Cvar_SetByVar(info_rate, cl_connect_rate->string, FROM_CODE);
+        Cvar_SetByVar(cl_maxfps, cl_connect_maxfps->string, FROM_CODE);
+    } else {
+        Cvar_SetByVar(info_rate, cl_rate_target, FROM_CODE);
+        Cvar_SetByVar(cl_maxfps, cl_maxfps_target, FROM_CODE);
+    }
+}
+
 /*
 ================
 CL_Connect_f
@@ -543,6 +577,8 @@ static void CL_Connect_f(void)
     cls.state = ca_challenging;
     cls.connect_time -= CONNECT_FAST;
     cls.connect_count = 0;
+
+    CL_SetConnectSpeed(true);
 
     Con_Popup(true);
 
@@ -704,6 +740,8 @@ void CL_Disconnect(error_type_t type)
     if (!cls.state) {
         return;
     }
+
+    CL_SetConnectSpeed(false);
 
     SCR_EndLoadingPlaque(); // get rid of loading plaque
 
@@ -2787,6 +2825,9 @@ static void CL_InitLocal(void)
     cl_changemapcmd = Cvar_Get("cl_changemapcmd", "", 0);
     cl_beginmapcmd = Cvar_Get("cl_beginmapcmd", "", 0);
 
+    cl_connect_rate = Cvar_Get("cl_connect_rate", "15000", 0);
+    cl_connect_maxfps = Cvar_Get("cl_connect_maxfps", "120", 0);
+
     cl_ignore_stufftext = Cvar_Get("cl_ignore_stufftext", "0", 0);
     cl_allow_vid_restart = Cvar_Get("cl_allow_vid_restart", "0", 0);
 
@@ -2816,6 +2857,11 @@ static void CL_InitLocal(void)
     info_gender->modified = false; // clear this so we know when user sets it manually
     info_uf = Cvar_Get("uf", "", CVAR_USERINFO);
 
+    // remember the steady-state 'rate'/'cl_maxfps' the user asked for
+    // (command line, config, or just the hardcoded defaults above) before
+    // CL_SetConnectSpeed() starts overriding them while loading a level
+    Q_strlcpy(cl_rate_target, info_rate->string, sizeof(cl_rate_target));
+    Q_strlcpy(cl_maxfps_target, cl_maxfps->string, sizeof(cl_maxfps_target));
 
     //
     // macros

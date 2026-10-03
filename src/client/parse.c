@@ -520,6 +520,11 @@ static void CL_ParseServerData(void)
 
     Cbuf_Execute(&cl_cmdbuf);          // make sure any stuffed commands are done
 
+    // a fresh batch of configstrings and baselines is about to arrive
+    // (either the initial connect, or the server changed levels) - make
+    // sure we download it at full speed
+    CL_SetConnectSpeed(true);
+
     // wipe the client_state_t struct
     CL_ClearState();
 
