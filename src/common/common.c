@@ -130,7 +130,7 @@ cvar_t  *sys_history;
 #endif
 
 const char  com_version_string[] =
-    APPLICATION " " VERSION " " __DATE__ " " BUILDSTRING " " CPUSTRING;
+    "wallfly-2.0.1" " " __DATE__ " " BUILDSTRING " " CPUSTRING;
 
 unsigned    com_framenum;
 unsigned    com_eventTime;
