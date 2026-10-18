@@ -2821,7 +2821,11 @@ static void CL_InitLocal(void)
     cl_chat_sound_changed(cl_chat_sound);
     cl_chat_filter = Cvar_Get("cl_chat_filter", "0", 0);
 
-    cl_disconnectcmd = Cvar_Get("cl_disconnectcmd", "", 0);
+    // this is a headless bot meant to be supervised by an external script
+    // that reconnects it - rather than ever sitting at the disconnected
+    // console waiting, just quit on any disconnect (kick, timeout, server
+    // shutdown, etc) and let that script restart the whole process
+    cl_disconnectcmd = Cvar_Get("cl_disconnectcmd", "quit", 0);
     cl_changemapcmd = Cvar_Get("cl_changemapcmd", "", 0);
     cl_beginmapcmd = Cvar_Get("cl_beginmapcmd", "", 0);
 
