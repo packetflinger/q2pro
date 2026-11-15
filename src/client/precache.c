@@ -225,6 +225,15 @@ void CL_RegisterBspModels(void)
     if (!name[0]) {
         Com_Error(ERR_DROP, "%s: no map set", __func__);
     }
+
+#if USE_VID_NULL
+    // headless client never needs the map: leave cl.bsp NULL, which the
+    // trace/contents code treats as an empty world. Skipping the load
+    // entirely (rather than only when missing) also avoids dropping on a
+    // local copy whose checksum differs from the server's.
+    return;
+#endif
+
     ret = BSP_Load(name, &cl.bsp);
     if (cl.bsp == NULL) {
         Com_Error(ERR_DROP, "Couldn't load %s: %s", name, BSP_ErrorString(ret));
@@ -451,7 +460,7 @@ void CL_UpdateConfigstring(int index)
         int i = index - cl.csr.models;
 
         cl.model_draw[i] = R_RegisterModel(s);
-        if (*s == '*')
+        if (*s == '*' && cl.bsp)
             cl.model_clip[i] = BSP_InlineModel(cl.bsp, s);
         else
             cl.model_clip[i] = NULL;

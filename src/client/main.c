@@ -2843,17 +2843,11 @@ static void CL_InitLocal(void)
     cl_vwep->changed = cl_vwep_changed;
 
 #if USE_VID_NULL
-    // this headless client has no renderer or sound, so the only asset it
-    // ever actually needs is the map itself (required for collision and
-    // prediction) - force that on and everything else off, regardless of
-    // command line or any previously archived value
-    Cvar_SetByVar(allow_download, "1", FROM_CODE);
-    Cvar_SetByVar(allow_download_maps, "1", FROM_CODE);
-    Cvar_SetByVar(allow_download_models, "0", FROM_CODE);
-    Cvar_SetByVar(allow_download_sounds, "0", FROM_CODE);
-    Cvar_SetByVar(allow_download_pics, "0", FROM_CODE);
-    Cvar_SetByVar(allow_download_players, "0", FROM_CODE);
-    Cvar_SetByVar(allow_download_textures, "0", FROM_CODE);
+    // this headless client has no renderer or sound and doesn't load the
+    // map either (see CL_RegisterBspModels), so it never needs any game
+    // assets - permanently disable all downloads (UDP and HTTP) regardless
+    // of command line or any previously archived value
+    Cvar_SetByVar(allow_download, "-1", FROM_CODE);
 #endif
     allow_download->changed = cl_allow_download_changed;
     cl_allow_download_changed(allow_download);

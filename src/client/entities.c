@@ -1284,7 +1284,7 @@ static void CL_SetupThirdPersionView(void)
     VectorMA(cl.refdef.vieworg, -range * rscale, cl.v_right, cl.refdef.vieworg);
 
     CM_BoxTrace(&trace, cl.playerEntityOrigin, cl.refdef.vieworg,
-                mins, maxs, cl.bsp->nodes, MASK_SOLID, cl.csr.extended);
+                mins, maxs, cl.bsp ? cl.bsp->nodes : NULL, MASK_SOLID, cl.csr.extended);
     if (trace.fraction != 1.0f) {
         VectorCopy(trace.endpos, cl.refdef.vieworg);
     }

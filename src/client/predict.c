@@ -119,7 +119,7 @@ CL_Trace
 void CL_Trace(trace_t *tr, const vec3_t start, const vec3_t end, const vec3_t mins, const vec3_t maxs, int contentmask)
 {
     // check against world
-    CM_BoxTrace(tr, start, end, mins, maxs, cl.bsp->nodes, contentmask, cl.csr.extended);
+    CM_BoxTrace(tr, start, end, mins, maxs, cl.bsp ? cl.bsp->nodes : NULL, contentmask, cl.csr.extended);
     tr->ent = (struct edict_s *)cl_entities;
     if (tr->fraction == 0)
         return;     // blocked by the world
@@ -143,7 +143,7 @@ static int CL_PointContents(const vec3_t point)
     const mmodel_t  *cmodel;
     int i, contents;
 
-    contents = CM_PointContents(point, cl.bsp->nodes, cl.csr.extended);
+    contents = CM_PointContents(point, cl.bsp ? cl.bsp->nodes : NULL, cl.csr.extended);
 
     for (i = 0; i < cl.numSolidEntities; i++) {
         ent = cl.solidEntities[i];
@@ -194,7 +194,8 @@ void CL_PredictMovement(void)
         return;
     }
 
-    if (!cl_predict->integer || (cl.frame.ps.pmove.pm_flags & PMF_NO_PREDICTION)) {
+    // without a map there is no world to predict movement against
+    if (!cl_predict->integer || !cl.bsp || (cl.frame.ps.pmove.pm_flags & PMF_NO_PREDICTION)) {
         // just set angles
         CL_PredictAngles();
         return;
